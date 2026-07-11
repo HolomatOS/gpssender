@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg_dark"
+    android:padding="24dp"
+    android:gravity="center">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="GPS SENDER"
+        android:textColor="@color/cyan_accent"
+        android:textSize="24sp"
+        android:letterSpacing="0.15"
+        android:textStyle="bold"
+        android:layout_marginBottom="32dp"/>
+
+    <EditText
+        android:id="@+id/pairingCodeInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Pairing code (e.g. 482913)"
+        android:textColorHint="@color/text_dim"
+        android:textColor="@color/text_primary"
+        android:background="@color/bg_panel"
+        android:padding="16dp"
+        android:inputType="number"
+        android:layout_marginBottom="16dp"/>
+
+    <Button
+        android:id="@+id/startStopButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="START SHARING"
+        android:textColor="@color/bg_dark"
+        android:backgroundTint="@color/cyan_accent"
+        android:padding="14dp"/>
+
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="NOT SHARING"
+        android:textColor="@color/text_dim"
+        android:textSize="14sp"
+        android:layout_marginTop="24dp"/>
+
+</LinearLayout>
