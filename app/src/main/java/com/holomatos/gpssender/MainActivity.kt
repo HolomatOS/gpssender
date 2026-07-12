@@ -1,36 +1,35 @@
 package com.holomatos.gpssender
 
-import android.Manifest
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
-import android.location.Location
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.google.firebase.database.FirebaseDatabase
 import com.holomatos.gpssender.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
-    private var locationCallback: LocationCallback? = null
+    private lateinit var devicePolicyManager: DevicePolicyManager
+    private lateinit var adminComponent: ComponentName
     private var tracking = false
 
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                startTracking()
+                beginTracking()
             } else {
                 Toast.makeText(this, "Location permission is required to share your position", Toast.LENGTH_LONG).show()
             }
+        }
+
+    private val deviceAdminLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,7 +37,16 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        devicePolicyManager = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        adminComponent = ComponentName(this, AppDeviceAdminReceiver::class.java)
+
+        val prefs = getSharedPreferences(LocationForegroundService.PREFS_NAME, Context.MODE_PRIVATE)
+        val savedCode = prefs.getString(LocationForegroundService.KEY_PAIRING_CODE, null)
+        if (!savedCode.isNullOrEmpty()) {
+            binding.pairingCodeInput.setText(savedCode)
+        }
+
+        promptDeviceAdminIfNeeded()
 
         binding.startStopButton.setOnClickListener {
             if (!tracking) {
@@ -47,68 +55,62 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(this, "Enter a pairing code first", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
-                checkPermissionAndStart()
+                checkPermissionAndStart(code)
             } else {
                 stopTracking()
             }
         }
     }
 
-    private fun checkPermissionAndStart() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-            == PackageManager.PERMISSION_GRANTED
-        ) {
-            startTracking()
-        } else {
-            requestPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+    private fun promptDeviceAdminIfNeeded() {
+        val isActive = devicePolicyManager.isAdminActive(adminComponent)
+        if (!isActive) {
+            val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
+                putExtra(
+                    DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                    "Activating device admin prevents this app from being uninstalled without first deactivating it here. Recommended for anti-theft tracking."
+                )
+            }
+            deviceAdminLauncher.launch(intent)
         }
     }
 
-    private fun startTracking() {
+    private fun checkPermissionAndStart(code: String) {
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            beginTracking()
+        } else {
+            requestPermissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
+
+    private fun beginTracking() {
         val code = binding.pairingCodeInput.text.toString().trim()
         if (code.isEmpty()) return
 
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000L)
-            .setMinUpdateIntervalMillis(3000L)
-            .build()
+        getSharedPreferences(LocationForegroundService.PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(LocationForegroundService.KEY_PAIRING_CODE, code)
+            .apply()
 
-        locationCallback = object : LocationCallback() {
-            override fun onLocationResult(result: LocationResult) {
-                val loc: Location = result.lastLocation ?: return
-                pushLocation(code, loc)
-            }
-        }
+        val serviceIntent = Intent(this, LocationForegroundService::class.java)
+        ContextCompat.startForegroundService(this, serviceIntent)
 
-        try {
-            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback!!, mainLooper)
-            tracking = true
-            binding.startStopButton.text = "STOP SHARING"
-            binding.statusText.text = "SHARING TO CODE: $code"
-        } catch (e: SecurityException) {
-            Toast.makeText(this, "Permission error: ${e.message}", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    private fun pushLocation(code: String, loc: Location) {
-        val ref = FirebaseDatabase.getInstance().getReference("locations").child(code)
-        val data = mapOf(
-            "lat" to loc.latitude,
-            "lng" to loc.longitude,
-            "accuracy" to loc.accuracy,
-            "timestamp" to System.currentTimeMillis()
-        )
-        ref.setValue(data)
+        tracking = true
+        binding.startStopButton.text = "STOP SHARING"
+        binding.statusText.text = "SHARING TO CODE: $code (background service active)"
     }
 
     private fun stopTracking() {
-        locationCallback?.let { fusedLocationClient.removeLocationUpdates(it) }
+        stopService(Intent(this, LocationForegroundService::class.java))
+        getSharedPreferences(LocationForegroundService.PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove(LocationForegroundService.KEY_PAIRING_CODE)
+            .apply()
         tracking = false
         binding.startStopButton.text = "START SHARING"
         binding.statusText.text = "NOT SHARING"
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        locationCallback?.let { fusedLocationClient.removeLocationUpdates(it) }
     }
 }
