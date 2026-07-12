@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "709505393331",
+    "firebase_url": "https://findmydevice2482-default-rtdb.firebaseio.com",
+    "project_id": "findmydevice2482",
+    "storage_bucket": "findmydevice2482.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:709505393331:android:a89e1c01bb118d4328c6c6",
+        "android_client_info": {
+          "package_name": "com.holomatos.gpssender"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAAbaWIJL5XKK8ut41A9MG8XMxco3GFMgo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
