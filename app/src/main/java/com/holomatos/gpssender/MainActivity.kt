@@ -14,6 +14,10 @@ import com.holomatos.gpssender.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        private const val STOP_PIN = "0707"
+    }
+
     private lateinit var binding: ActivityMainBinding
     private lateinit var devicePolicyManager: DevicePolicyManager
     private lateinit var adminComponent: ComponentName
@@ -30,6 +34,7 @@ class MainActivity : AppCompatActivity() {
 
     private val deviceAdminLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            // Whether granted or not, we continue - admin is an extra layer, not a hard requirement
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,9 +62,31 @@ class MainActivity : AppCompatActivity() {
                 }
                 checkPermissionAndStart(code)
             } else {
-                stopTracking()
+                promptStopPin()
             }
         }
+    }
+
+    private fun promptStopPin() {
+        val pinInput = android.widget.EditText(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            hint = "Enter PIN"
+        }
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Stop sharing")
+            .setMessage("Enter PIN to stop location sharing")
+            .setView(pinInput)
+            .setPositiveButton("Confirm") { _, _ ->
+                if (pinInput.text.toString() == STOP_PIN) {
+                    stopTracking()
+                } else {
+                    Toast.makeText(this, "Incorrect PIN", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .setCancelable(false)
+            .show()
     }
 
     private fun promptDeviceAdminIfNeeded() {
